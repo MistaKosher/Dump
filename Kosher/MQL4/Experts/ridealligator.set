@@ -1,0 +1,15 @@
+AlligatorPeriod=6
+AlligatorPeriod,F=0
+AlligatorPeriod,1=1
+AlligatorPeriod,2=1
+AlligatorPeriod,3=10
+AlliggatorMODE=1
+AlliggatorMODE,F=0
+AlliggatorMODE,1=0
+AlliggatorMODE,2=1
+AlliggatorMODE,3=6
+RiskFactor=0.10000000
+RiskFactor,F=0
+RiskFactor,1=0.50000000
+RiskFactor,2=0.00000000
+RiskFactor,3=0.00000000

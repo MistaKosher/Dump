@@ -1,0 +1,15 @@
+0	12:01:18.407	Custom indicator 1MarketProfile GBPUSD,M15: loaded successfully
+0	12:01:19.856	1MarketProfile GBPUSD,M15: initialized
+0	12:01:25.746	1MarketProfile GBPUSD,M15: uninit reason 1
+0	12:01:25.756	Custom indicator 1MarketProfile GBPUSD,M15: removed
+3	12:10:48.769	cannot open file 'C:\Users\KOSHER\AppData\Roaming\ForexClub MT4\MQL4\indicators\MarketProfile.ex4' [2]
+3	12:12:59.901	cannot open file 'C:\Users\KOSHER\AppData\Roaming\ForexClub MT4\MQL4\indicators\MarketProfile.ex4' [2]
+3	12:16:40.921	cannot open file 'C:\Users\KOSHER\AppData\Roaming\ForexClub MT4\MQL4\indicators\MarketProfile.ex4' [2]
+3	12:17:06.301	cannot open file 'C:\Users\KOSHER\AppData\Roaming\ForexClub MT4\MQL4\indicators\MarketProfile.ex4' [2]
+0	16:34:26.310	Compiling 'BetterVolume'
+0	16:34:27.716	Compiling 'VSA'
+0	16:34:54.814	Custom indicator BetterVolume 1.4 WT,M5: loaded successfully
+0	16:34:56.031	BetterVolume 1.4 WT,M5: initialized
+0	16:35:02.803	BetterVolume 1.4 WT,M5: uninit reason 1
+0	16:35:02.804	Custom indicator BetterVolume 1.4 WT,M5: removed
+3	16:35:20.087	cannot open file 'C:\Users\KOSHER\AppData\Roaming\ForexClub MT4\MQL4\indicators\MarketProfile.ex4' [2]

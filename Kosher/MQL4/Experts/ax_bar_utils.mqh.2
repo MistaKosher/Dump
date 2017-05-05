@@ -1,0 +1,608 @@
+//+------------------------------------------------------------------+
+//|                                                  ax_bar_type.mqh |
+//|                        Copyright 2016, MetaQuotes Software Corp. |
+//|                                              http://www.mql4.com |
+//+------------------------------------------------------------------+
+#property copyright "Copyright 2016, MetaQuotes Software Corp."
+#property link      "http://www.mql4.com"
+#property version   "1.00"
+#property strict
+
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+enum bar_types
+{
+ BARTYPE_NONE,
+ BARTYPE_BEARISH,
+ BARTYPE_BULLISH
+};//struct bar_types
+
+enum ao_trend_mode
+{
+ AOTREND_UP,
+ AOTREND_DOWN,
+ AOTREND_HOR
+};
+
+enum trade_mode
+{
+ TRADEMODE_BUY,
+ TRADEMODE_SELL
+};
+
+class ax_bar_utils
+{
+ private:
+  static double get_avg_value(MqlRates& bar);
+
+ public:
+  ax_bar_utils();
+ ~ax_bar_utils();
+ 
+  static bar_types get_type(MqlRates& ready_bar, MqlRates& prev_bar);
+                    
+  static bool is_price_in_range(MqlRates& bar, double price);
+  
+  static bool is_out_of_gator(MqlRates& bar);
+  
+  static bool is_out_of_gator(MqlRates& bar, bar_types bt);
+  
+  static double get_min(double v1,double v2,double v3);
+  
+  static double get_max(double v1,double v2,double v3);
+  
+  static bool is_equal(MqlRates& b1,MqlRates& b2);
+  
+  static int OpenOrder(MqlRates& b,bar_types bt,string& err_msg,datetime _exp=0);
+  
+  static int OpenOrder(MqlRates& b,trade_mode tm,string& err_msg,datetime _exp=0);
+  
+  static int OpenOrder2(MqlRates& b,trade_mode tm,string& err_msg,datetime _exp=0);
+  
+  static int CloseAllOrders();
+  
+  static bool SetOrderSL(MqlRates& b,ao_trend_mode ao_mode,datetime _exp=0);
+  
+  static bool SetOrderSL(MqlRates& b,datetime _exp=0);
+  
+  static int SetAllOrderSL(MqlRates& b,ao_trend_mode ao_mode);
+  
+  static int RemoveAllOrders();
+  
+  static string err_msg();
+  
+  static bool gator_sleeps();
+  
+  static bool gator_waked_up();
+  
+  static void WriteFile(int handle,string msg);
+  
+  static void GetGatorStat(int handle,int shift);
+  
+  static double get_gator_wake_up_val();
+  
+  static double get_gator_sleep_val();
+};//class ax_bar_utils
+
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+ax_bar_utils::ax_bar_utils()
+{
+}
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+ax_bar_utils::~ax_bar_utils()
+{
+}
+//+------------------------------------------------------------------+
+static bar_types ax_bar_utils::get_type(MqlRates& ready_bar, MqlRates& prev_bar)
+{
+  //bull
+  if(ready_bar.low<prev_bar.low && ready_bar.close>ax_bar_utils::get_avg_value(ready_bar))
+   return BARTYPE_BULLISH;
+   
+  //bear
+  if(ready_bar.high>prev_bar.high && ready_bar.close<ax_bar_utils::get_avg_value(ready_bar))
+   return BARTYPE_BEARISH;
+   
+  return BARTYPE_NONE;
+}
+
+//-------------------------------------------------------------------- 
+static double ax_bar_utils::get_avg_value(MqlRates& bar)
+{
+ return (bar.high-bar.low)/2+bar.low;
+}
+
+//-------------------------------------------------------------------- 
+static bool ax_bar_utils::is_price_in_range(MqlRates& bar, double price)
+{
+ return bar.high>=price&&bar.low<=price;
+}
+
+//-------------------------------------------------------------------- 
+static bool ax_bar_utils::is_out_of_gator(MqlRates& bar)
+{
+ //получаем значение Алигатора
+ double lips_val=iAlligator(NULL,0,13,8,8,5,5,3,MODE_SMMA,PRICE_MEDIAN,MODE_GATORLIPS,1);
+ double teeth_val=iAlligator(NULL,0,13,8,8,5,5,3,MODE_SMMA,PRICE_MEDIAN,MODE_GATORTEETH,1);
+ double jaw_val=iAlligator(NULL,0,13,8,8,5,5,3,MODE_SMMA,PRICE_MEDIAN,MODE_GATORJAW,1);
+ 
+ return (bar.high<ax_bar_utils::get_min(lips_val,teeth_val,jaw_val)) || (bar.low>ax_bar_utils::get_max(lips_val,teeth_val,jaw_val)); 
+}
+
+//-------------------------------------------------------------------- 
+static bool ax_bar_utils::is_out_of_gator(MqlRates& bar, bar_types bt)
+{
+ //получаем значение Алигатора
+ double lips_val=iAlligator(NULL,0,13,8,8,5,5,3,MODE_SMMA,PRICE_MEDIAN,MODE_GATORLIPS,1);
+ double teeth_val=iAlligator(NULL,0,13,8,8,5,5,3,MODE_SMMA,PRICE_MEDIAN,MODE_GATORTEETH,1);
+ double jaw_val=iAlligator(NULL,0,13,8,8,5,5,3,MODE_SMMA,PRICE_MEDIAN,MODE_GATORJAW,1);
+  
+ if(bt==BARTYPE_BEARISH)
+ {
+  double gator_val=ax_bar_utils::get_max(lips_val,teeth_val,jaw_val);
+  
+  //return bar.low>gator_val;
+  return bar.low>(gator_val+(bar.high-bar.low)*g_gator_bar_diff);
+ }
+ 
+ if(bt==BARTYPE_BULLISH)
+ {
+  double gator_val=ax_bar_utils::get_min(lips_val,teeth_val,jaw_val);
+  
+  //return bar.high<gator_val;
+  return bar.high<(gator_val-(bar.high-bar.low)*g_gator_bar_diff);
+ }
+ 
+ return false;
+}
+
+//-------------------------------------------------------------------- 
+static double ax_bar_utils::get_min(double v1,double v2,double v3)
+{
+ if(v1<=v2&&v1<=v3)
+  return v1;
+  
+ if(v2<=v1&&v2<=v3)
+  return v2;
+  
+ return v3;
+}
+
+//-------------------------------------------------------------------- 
+static double ax_bar_utils::get_max(double v1,double v2,double v3)
+{
+ if(v1>=v2&&v1>=v3)
+  return v1;
+  
+ if(v2>=v1&&v2>=v3)
+  return v2;
+  
+ return v3;
+}
+
+//-------------------------------------------------------------------- 
+static bool ax_bar_utils::is_equal(MqlRates& b1,MqlRates& b2)
+{
+ return b1.time==b2.time;
+}
+
+//-------------------------------------------------------------------- 
+static int ax_bar_utils::OpenOrder(MqlRates& b,bar_types bt,string& err_msg,datetime _exp)
+{
+ datetime expiration=0;
+ 
+ if(_exp!=0)
+  expiration=TimeCurrent()+g_bar_cnt_wait*PeriodSeconds(Period());
+ 
+ err_msg="";
+ //--- получим минимальное значение Stop level 
+ //double minstoplevel=MarketInfo(Symbol(),MODE_STOPLEVEL);
+ 
+ double price =0;
+ double sl    =0;
+ double tp    =0;
+ 
+ int ticket=-1;
+ 
+ if(bt==BARTYPE_BULLISH)//покупаем
+ {
+  price =NormalizeDouble(b.high+g_delta_points*Point,Digits);
+  sl    =NormalizeDouble(b.low-g_delta_points*Point,Digits);
+  tp    =NormalizeDouble(b.high+g_profit_coef*(b.high-b.low),Digits);
+  ticket=OrderSend(Symbol(),OP_BUYSTOP,g_lots,price,g_slippage,sl,tp,"AX Order Buy",g_order_count++,expiration,clrWhiteSmoke);
+ }
+ 
+ if(bt==BARTYPE_BEARISH)//продаем
+ {
+  price =NormalizeDouble(b.low-g_delta_points*Point,Digits);
+  sl    =NormalizeDouble(b.high+g_delta_points*Point,Digits);
+  tp    =NormalizeDouble(b.low-g_profit_coef*(b.high-b.low),Digits);
+  ticket=OrderSend(Symbol(),OP_SELLSTOP,g_lots,price,g_slippage,sl,tp,"AX Order Sell",g_order_count++,expiration,clrWhiteSmoke);
+ }
+ 
+ if(ticket<0)
+ {
+  int err=GetLastError();
+  
+  err_msg=IntegerToString(err)+":"+ErrorDescription(err)+"\n"+
+          "Price:"+DoubleToString(price)+"\n"+
+          "Loss:"+DoubleToString(sl)+"\n"+
+          "Profit:"+DoubleToString(tp);
+ }
+ 
+ return ticket;
+}
+
+//-------------------------------------------------------------------- 
+static int ax_bar_utils::OpenOrder(MqlRates& b,trade_mode tm,string& err_msg,datetime _exp=0)
+{
+ datetime expiration=_exp;
+ 
+ /*if(_exp!=0)
+  expiration=TimeCurrent()+g_bar_cnt_wait*PeriodSeconds(Period());*/
+ 
+ err_msg="";
+ //--- получим минимальное значение Stop level 
+ double minstoplevel=MarketInfo(Symbol(),MODE_STOPLEVEL);
+ 
+ double price =0;
+ double sl    =0;
+ double tp    =0;
+ int ticket   =-1;
+ 
+ if(tm==TRADEMODE_BUY)//покупаем
+ {
+  price =Ask;
+  sl    =MathMin(NormalizeDouble(b.low-g_delta_points*Point,Digits),NormalizeDouble(Bid-minstoplevel*Point,Digits));
+  //tp    =NormalizeDouble(b.high+g_profit_coef*(b.high-b.low),Digits);
+  //sl=NormalizeDouble(Bid-minstoplevel*Point,Digits);
+  ticket=OrderSend(Symbol(),OP_BUY,g_lots,price,g_slippage,sl,tp,"AX Order Buy",g_order_count++,expiration,clrWhiteSmoke);
+ }
+ 
+ if(tm==TRADEMODE_SELL)//продаем
+ {
+  price =Bid;
+  sl    =MathMax(NormalizeDouble(b.high+g_delta_points*Point,Digits),NormalizeDouble(Ask+minstoplevel*Point,Digits));
+  //tp    =NormalizeDouble(b.low-g_profit_coef*(b.high-b.low),Digits);
+  //sl=NormalizeDouble(Ask-minstoplevel*Point,Digits);
+  ticket=OrderSend(Symbol(),OP_SELL,g_lots,price,g_slippage,sl,tp,"AX Order Sell",g_order_count++,expiration,clrWhiteSmoke);
+ }
+ 
+ if(ticket<0)
+ {
+  int err=GetLastError();
+  
+  err_msg=IntegerToString(err)+":"+ErrorDescription(err)+"\n"+
+          "Price:"+DoubleToString(price)+"\n"+
+          "Stop Loss:"+DoubleToString(sl)+"\n"+
+          "Take Profit:"+DoubleToString(tp);
+ }
+ 
+ return ticket;
+}
+
+//-------------------------------------------------------------------- 
+static int ax_bar_utils::OpenOrder2(MqlRates& b,trade_mode tm,string& err_msg,datetime _exp=0)
+{
+ datetime expiration=_exp;
+ 
+ if(_exp!=0)
+  expiration=TimeCurrent()+g_bar_cnt_wait*PeriodSeconds(Period());
+ 
+ err_msg="";
+ //--- получим минимальное значение Stop level 
+ double minstoplevel=MarketInfo(Symbol(),MODE_STOPLEVEL);
+ 
+ double price =0;
+ double sl    =0;
+ double tp    =0;
+ int ticket   =-1;
+ 
+ if(tm==TRADEMODE_BUY)//покупаем
+ {
+  price  =MathMax(NormalizeDouble(Ask+minstoplevel*Point,Digits),NormalizeDouble(b.high+g_delta_points*Point,Digits));
+  sl     =MathMin(NormalizeDouble(b.low-g_delta_points*Point,Digits),NormalizeDouble(Bid-minstoplevel*Point,Digits));
+  tp     =0;//NormalizeDouble(MathMax(b.high,price)+g_profit_coef*(b.high-b.low),Digits);
+  ticket =OrderSend(Symbol(),OP_BUYSTOP,g_lots,price,g_slippage,sl,tp,"AX Order Buy",g_order_count++,expiration,clrWhiteSmoke);
+  
+  /*double tmp=price;
+  price  =sl;
+  sl     =tmp;
+  tp     =NormalizeDouble(b.low-g_profit_coef*(b.high-b.low),Digits);
+  ticket =OrderSend(Symbol(),OP_SELLSTOP,g_lots,price,g_slippage,sl,tp,"AX Order Sell",g_order_count++,expiration,clrWhiteSmoke);*/
+ }
+ 
+ if(tm==TRADEMODE_SELL)//продаем
+ {
+  price  =MathMin(NormalizeDouble(Bid-minstoplevel*Point,Digits),NormalizeDouble(b.low-g_delta_points*Point,Digits));
+  sl     =MathMax(NormalizeDouble(b.high+g_delta_points*Point,Digits),NormalizeDouble(Ask+minstoplevel*Point,Digits));
+  tp     =0;//NormalizeDouble(MathMin(b.low,price)-g_profit_coef*(b.high-b.low),Digits);
+  ticket =OrderSend(Symbol(),OP_SELLSTOP,g_lots,price,g_slippage,sl,tp,"AX Order Sell",g_order_count++,expiration,clrWhiteSmoke);
+  
+  /*double tmp  =price;
+  price  =sl;
+  sl     =tmp;
+  tp     =NormalizeDouble(b.high+g_profit_coef*(b.high-b.low),Digits);  
+  ticket =OrderSend(Symbol(),OP_BUYSTOP,g_lots,price,g_slippage,sl,tp,"AX Order Buy",g_order_count++,expiration,clrWhiteSmoke);*/
+ }
+ 
+ if(ticket<0)
+ {
+  int err=GetLastError();
+  
+  err_msg=IntegerToString(err)+":"+ErrorDescription(err)+"\n"+
+          "Price:"+DoubleToString(price)+"\n"+
+          "Stop Loss:"+DoubleToString(sl)+"\n"+
+          "Take Profit:"+DoubleToString(tp);
+ }
+ 
+ return ticket;
+}
+
+//-------------------------------------------------------------------- 
+//возвращает количество оставшихся открытых
+static int ax_bar_utils::CloseAllOrders()
+{
+ int cnt=OrdersTotal();
+ 
+ int close_success=0;
+ int close_failed=0;
+ 
+ for(int i=0;i<cnt;i++)
+ {
+  if(!OrderSelect(i,SELECT_BY_POS,MODE_TRADES))
+   continue;
+   
+  int order_type=OrderType();
+  
+  if(order_type==OP_BUY)
+  {
+   if(OrderClose(OrderTicket(),g_lots,Bid,g_slippage))
+    close_success++;
+   else
+    close_failed++;
+  }
+  
+  if(order_type==OP_SELL)
+  {
+   if(OrderClose(OrderTicket(),g_lots,Ask,g_slippage))
+    close_success++;
+   else
+    close_failed++;
+  }
+ } 
+ 
+ return cnt-close_success;
+}
+
+//--------------------------------------------------------------------
+static bool ax_bar_utils::SetOrderSL(MqlRates& b,ao_trend_mode ao_mode,datetime _exp=0)
+{
+ if(!(g_ticket>0&&OrderSelect(g_ticket,SELECT_BY_TICKET)))
+  return false;
+  
+ bool retval=false;
+ 
+ double sl=OrderStopLoss();
+ 
+ if(ao_mode==AOTREND_UP)
+ {
+  sl    =MathMin(NormalizeDouble(b.low-g_delta_points*Point,Digits),Bid);
+  retval=OrderModify(OrderTicket(),OrderOpenPrice(),sl,OrderTakeProfit(),_exp);
+ }
+ 
+ if(ao_mode==AOTREND_DOWN)
+ {
+  sl    =MathMax(NormalizeDouble(b.high+g_delta_points*Point,Digits),Ask);
+  retval=OrderModify(OrderTicket(),OrderOpenPrice(),sl,OrderTakeProfit(),_exp);
+ }
+ 
+ return retval;
+}
+
+//-------------------------------------------------------------------- 
+static bool ax_bar_utils::SetOrderSL(MqlRates& b,datetime _exp=0)
+{
+ if(g_ticket<0)
+  return true;
+  
+ if(!OrderSelect(g_ticket,SELECT_BY_TICKET))
+ {
+  g_ticket=-1;//похоже, что ордер уже закрылся по stoploss
+  return false;
+ }
+  
+ bool retval=false;
+ 
+ double minstoplevel=MarketInfo(Symbol(),MODE_STOPLEVEL);
+ 
+ double sl=0;
+ 
+ int order_type=OrderType();
+ 
+ if(order_type==OP_BUY)
+ {
+  sl=MathMin(NormalizeDouble(b.low,Digits),NormalizeDouble(Bid-minstoplevel*Point,Digits));
+  //sl=MathMin(NormalizeDouble(b.low-g_delta_points*Point,Digits),NormalizeDouble(Bid-minstoplevel*Point,Digits));
+  retval =OrderModify(OrderTicket(),OrderOpenPrice(),sl,OrderTakeProfit(),_exp);
+ }
+ 
+ if(order_type==OP_SELL)
+ {
+  sl    =MathMax(NormalizeDouble(b.high,Digits),NormalizeDouble(Ask+minstoplevel*Point,Digits));
+  //sl    =MathMax(NormalizeDouble(b.high+g_delta_points*Point,Digits),NormalizeDouble(Ask+minstoplevel*Point,Digits));
+  retval =OrderModify(OrderTicket(),OrderOpenPrice(),sl,OrderTakeProfit(),_exp);
+ }
+ 
+ return retval;
+}
+
+//-------------------------------------------------------------------- 
+static int ax_bar_utils::SetAllOrderSL(MqlRates& b,ao_trend_mode ao_mode)
+{
+ double minstoplevel=MarketInfo(Symbol(),MODE_STOPLEVEL);
+ 
+ int modify_success=0;
+ 
+ int cnt=OrdersTotal();
+ 
+ for(int i=0;i<cnt;i++)
+ {
+  if(!OrderSelect(i,SELECT_BY_POS,MODE_TRADES))
+   continue;
+   
+  int order_type=OrderType();
+
+  if(ao_mode==AOTREND_DOWN && order_type==OP_BUY)
+  {
+   double sl=MathMin(NormalizeDouble(b.low,Digits),NormalizeDouble(Bid-minstoplevel*Point,Digits));
+   //double sl=MathMin(NormalizeDouble(b.low-g_delta_points*Point,Digits),NormalizeDouble(Bid-minstoplevel*Point,Digits));
+   
+   if(OrderModify(OrderTicket(),OrderOpenPrice(),MathMax(sl,OrderStopLoss()),OrderTakeProfit(),OrderExpiration()))
+    modify_success++;
+  }
+  
+  if(ao_mode==AOTREND_UP && order_type==OP_SELL)
+  {
+   //double sl=MathMax(NormalizeDouble(b.high,Digits),NormalizeDouble(Ask+minstoplevel*Point,Digits));
+   double sl=MathMax(NormalizeDouble(b.high+g_delta_points*Point,Digits),NormalizeDouble(Ask+minstoplevel*Point,Digits));
+
+   if(OrderModify(OrderTicket(),OrderOpenPrice(),MathMin(sl,OrderStopLoss()),OrderTakeProfit(),OrderExpiration()))
+    modify_success++;
+  }
+ }
+ 
+ return modify_success;
+}
+
+//-------------------------------------------------------------------- 
+static int ax_bar_utils::RemoveAllOrders()
+{
+ int remove_success=0;
+ 
+ int cnt=OrdersTotal();
+ 
+ Comment("CNT:"+IntegerToString(cnt));
+ 
+ for(int i=0;i<cnt;i++)
+ {
+  if(!OrderSelect(i,SELECT_BY_POS,MODE_TRADES))
+   continue;
+   
+  if(OrderDelete(OrderTicket()))
+   remove_success++;
+ }
+ 
+ return remove_success;
+}
+
+//-------------------------------------------------------------------- 
+static string ax_bar_utils::err_msg()
+{
+ int err=GetLastError();
+ 
+ return err==ERR_NO_ERROR?"":"("+IntegerToString(err)+")"+ErrorDescription(err);
+}
+
+//-------------------------------------------------------------------- 
+static bool ax_bar_utils::gator_sleeps()
+{
+ //получаем значение Алигатора
+ double lips  =iAlligator(NULL,0,13,8,8,5,5,3,MODE_SMMA,PRICE_MEDIAN,MODE_GATORLIPS,1);
+ double teeth =iAlligator(NULL,0,13,8,8,5,5,3,MODE_SMMA,PRICE_MEDIAN,MODE_GATORTEETH,1);
+ double jaw   =iAlligator(NULL,0,13,8,8,5,5,3,MODE_SMMA,PRICE_MEDIAN,MODE_GATORJAW,1);
+ 
+ double max_val =ax_bar_utils::get_max(lips,teeth,jaw);
+ double min_val =ax_bar_utils::get_min(lips,teeth,jaw);
+ 
+ return max_val/min_val<g_gator_sleep_val;
+}
+
+//-------------------------------------------------------------------- 
+static bool ax_bar_utils::gator_waked_up()
+{
+ //получаем значение Алигатора
+ double lips  =iAlligator(NULL,0,13,8,8,5,5,3,MODE_SMMA,PRICE_MEDIAN,MODE_GATORLIPS,1);
+ double teeth =iAlligator(NULL,0,13,8,8,5,5,3,MODE_SMMA,PRICE_MEDIAN,MODE_GATORTEETH,1);
+ double jaw   =iAlligator(NULL,0,13,8,8,5,5,3,MODE_SMMA,PRICE_MEDIAN,MODE_GATORJAW,1);
+ 
+ double max_val =ax_bar_utils::get_max(lips,teeth,jaw);
+ double min_val =ax_bar_utils::get_min(lips,teeth,jaw);
+ 
+ return max_val/min_val>g_gator_wake_up_val;
+}
+
+//-------------------------------------------------------------------- 
+static void ax_bar_utils::WriteFile(int handle,string msg)
+{
+ FileWrite(handle,TimeToString(TimeCurrent())+":"+msg);
+ //FileWrite(handle,msg); 
+ FileFlush(handle);
+}
+
+//-------------------------------------------------------------------- 
+static void ax_bar_utils::GetGatorStat(int handle,int shift)
+{
+ MqlRates mqlrates[];
+
+ ArrayCopyRates(mqlrates,Symbol(),Period());
+ 
+ for(int s=0;s<shift;s++)
+ {
+  double lips=iAlligator(NULL,0,13,8,8,5,5,3,MODE_SMMA,PRICE_MEDIAN,MODE_GATORLIPS,s);
+  double teeth=iAlligator(NULL,0,13,8,8,5,5,3,MODE_SMMA,PRICE_MEDIAN,MODE_GATORTEETH,s);
+  double jaw=iAlligator(NULL,0,13,8,8,5,5,3,MODE_SMMA,PRICE_MEDIAN,MODE_GATORJAW,s);
+  
+  double max_val=ax_bar_utils::get_max(lips,teeth,jaw);
+  double min_val=ax_bar_utils::get_min(lips,teeth,jaw);
+  
+  string msg=DoubleToString(max_val/min_val,12);
+ 
+  MqlRates bar=mqlrates[s]; 
+  
+  msg+=CharToString(9)+TimeToString(bar.time);
+  
+  ax_bar_utils::WriteFile(handle,msg);
+ }
+}
+
+//-------------------------------------------------------------------- 
+static double ax_bar_utils::get_gator_wake_up_val()
+{
+ switch(Period())
+ {
+  case PERIOD_M1:  return 1.00006;
+  case PERIOD_M5:  return 1.001;
+  case PERIOD_M15: return 1.0009;
+  case PERIOD_M30: return 1.001;
+  default: return 1.003;
+/*  case PERIOD_M1: return 1.0006;
+  case PERIOD_M5: return 1.00065;
+  case PERIOD_M15: return 1.001;
+  case PERIOD_M30: return 1.002;
+  default: return 1.003;*/
+/*  case PERIOD_H1:
+  case PERIOD_H4:
+  case PERIOD_D1:
+  case PERIOD_W1:
+  case PERIOD_MN1:*/
+ } 
+}
+
+//-------------------------------------------------------------------- 
+static double ax_bar_utils::get_gator_sleep_val()
+{
+ switch(Period())
+ {
+  case PERIOD_M1:  return 1.000006;
+  case PERIOD_M5:  return 1.0001;
+  case PERIOD_M15: return 1.00009;
+  case PERIOD_M30: return 1.0002;//return 1.0007;
+  default: return 1.0003; 
+ }
+}
